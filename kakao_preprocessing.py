@@ -148,3 +148,4 @@ def get_recommened_contents(user, data_doc, model):
 
 print("-"*30)
 get_recommened_contents(user , data_content , model_content)
+
