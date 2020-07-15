@@ -62,7 +62,8 @@ read_raw = pd.DataFrame({'dt': np.repeat(read['dt'], read_cnt_by_user),
                          'user_id': np.repeat(read['user_id'], read_cnt_by_user),
                          'article_id': chainer(read['article_id'])})
 
-
+metadata.info()
+metadata.head()
 
 read_raw.info()
 read_raw.head()
@@ -79,12 +80,6 @@ popular_len = int(len(popular_read_dict) * 0.2)
 
 popular_read = sorted(popular_read_dict.items() , key = (lambda x:x[1]) , reverse =True)[:popular_len]
 
-metadata.reg_ts
-
-
-metadata[metadata.id=="@brunch_151"]
-metadata.info()
-metadata.head()
 
 tmp = []
 from datetime import datetime
@@ -96,4 +91,5 @@ for i in range(len(metadata.reg_ts)):
 metadata['date'] = tmp
 metadata.head()
 
-metadata[metadata.date.between('20181001' , '20190314')]
+
+
