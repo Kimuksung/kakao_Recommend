@@ -87,11 +87,10 @@ metadata = metadata[metadata.date.between('20181001' , '20190314')]
 
 # recent1 대해 수행 중
 # metadata를 통해 2019.02.15~02.28
-def make_recent1_metadata(metadata):
+def make_recent1_metadata(metadata , read_raw):
     recent_metadata = metadata[metadata.date.between('20190215' , '20190228')]
     recent_metadata.id
     
-    read_raw # 22110706
     recent_read_popular = read_raw[read_raw.article_id.isin(recent_metadata.id)] # 930498
     recent_read_popular.article_id
     
@@ -109,9 +108,7 @@ def make_recent1_metadata(metadata):
     for i,j in popular_read:
         tmp.append(i)
 
-    return metadata[metadata.id.isin(tmp)] , popular_read
-
-recent1_popular , popular_read = make_recent1_metadata(metadata)
+    return metadata[metadata.id.isin(tmp)] , recent_read_popular[recent_read_popular.article_id.isin(tmp)]
 
 #아이디어는 2개
 # 1. magazine에 대해서 user가 읽은 거에 대해 magazine별로 비율을 나누어 추천(인기도 높고 최신 순으로 추천할듯)
@@ -119,6 +116,33 @@ recent1_popular , popular_read = make_recent1_metadata(metadata)
 # user가 magazine어떤 분야에 흥미가 있는지를 나타낼수있다.  
 
 # 아이디어 1.
+def recent1_magazine_based(user_id , recent1_popular , recent_read_popular  ):
+    user_article = recent_read_popular[recent_read_popular.user_id==user_id].article_id
+    user_article = list(set(user_article))
+    
+    magazine_dict ={}
+    user_magazine = recent1_popular[recent1_popular.id.isin(user_article)].magazine_id
+    for i in user_magazine:
+        if i in magazine_dict.keys():
+            magazine_dict[i] +=1
+        else:
+            magazine_dict[i] = 1
+    
+    # 인기도 순으로 나타내어 제일 많은 magazine의 id를 보고 상위 몇개만 추천
+    magazine_dict = sorted(magazine_dict.items(), key = (lambda x:x[1]) , reverse =True)
+    magazine_pop_id , magazine_pop_len = magazine_dict[0]
+    magazine_recommend_id = list(recent1_popular[recent1_popular.magazine_id==magazine_pop_id].id)
+    len(magazine_recommend_id)
+    
+    magazine_dict2 ={}
+    read_raw_list = list(recent_read_popular['article_id'])
+    for i in magazine_recommend_id:
+        magazine_dict2[i] = read_raw_list.count(i)
+        
+    magazine_dict2 = sorted(magazine_dict2.items(), key = (lambda x:x[1]) , reverse =True)
+    return magazine_dict2
+
+recent1_popular , recent_read_popular = make_recent1_metadata(metadata , read_raw)
 recent1_popular.sample(n=1)
 # =============================================================================
 #         magazine_id     user_id title      keyword_list  \
@@ -131,35 +155,66 @@ recent1_popular.sample(n=1)
 # 496111  @bearhyang_42  20190220  
 # =============================================================================
 # userid = #0c04b1be93b3c76750c46161c7990bfb
-
-
 user_id = "#0c04b1be93b3c76750c46161c7990bfb"
-user_article = read_raw[read_raw.user_id==user_id].article_id
-user_article = list(set(user_article))
+magazine_based = recent1_magazine_based( user_id , recent1_popular , recent_read_popular)
+
+
+# magazine에 대해 2019.03.01 ~ 2019.03.14 에 대해 인기도를 대체 할 수 있는가?
+# 어느 정도 대체 할 수 있을걸로 보인다.
+# 인기글 1555.1650893796004 전체 글 493.7826882605911
+magazine.magazine_tag_list
+
+recent1_popular
+metadata[metadata.date.between('20190215' , '20190228')]
 
 magazine_dict ={}
-user_magazine = recent1_popular[recent1_popular.id.isin(user_article)].magazine_id
-for i in user_magazine:
-    if i in magazine_dict.keys():
-        magazine_dict[i] +=1
-    else:
-        magazine_dict[i] = 1
+for i in magazine.magazine_tag_list:
+    for j in i:
+        if j in magazine_dict.keys():
+            magazine_dict[j] +=1
+        else:
+            magazine_dict[j] = 1
+magazine_pop = 0   # 1478962
+for i in magazine[magazine.id.isin(recent1_popular.magazine_id)].magazine_tag_list:
+    for j in i:
+        magazine_pop += magazine_dict[j]
+magazine_pop/951 # 1555.1650893796004
 
-def divide(dividends, num):
-    ret = dict()
-    for key, dividend in dividends.items():
-        ret[key] = dividend/num
-    return ret
+magazine_normal = 0   # 5396551
+for i in magazine[magazine.id.isin(metadata[metadata.date.between('20190215' , '20190228')].magazine_id)].magazine_tag_list:
+    for j in i:
+        magazine_normal += magazine_dict[j]
+magazine_normal/10929 # 493.7826882605911
 
-# 인기도 순으로 나타내지 magazine의 id를 보고 상위 몇개만 추천
-magazine_dict = sorted(magazine_dict.items(), key = (lambda x:x[1]) , reverse =True)
-recent1_popular[recent1_popular.magazine_id==0].id
+# user의 tag
+user_tag_dict ={}
+for i in users.keyword_list:
+    if i:
+        for j in i:
+            for t in j['keyword'].split(' '):
+                if t in user_tag_dict.keys():
+                    user_tag_dict[t] +=1
+                else :
+                    user_tag_dict[t] = 1
 
-for i,t in magazine_dict:   
-    cnt = 0
-    for k , v in popular_read:
-        if recent1_popular[recent1_popular.id==k].magazine_id == magazine_dict[int(i)]:
-            print(recent1_popular[recent1_popular.id==k])
-            cnt +=1
-            if t/len(user_magazine) *20 <cnt:
-                break
+user_pop_tag = 0        
+for i in users[users.id.isin(read_raw[read_raw.article_id.isin(recent1_popular.id)].user_id)].keyword_list:
+    if i:
+        for j in i:
+            for t in j['keyword'].split(' '):
+                user_pop_tag += user_tag_dict[t]
+#175801705
+            
+user_pop_tag/59236 # 2967.8186406914715
+
+user_normal_tag = 0
+for i in users[users.id.isin(read_raw[read_raw.article_id.isin(metadata[metadata.date.between('20190215' , '20190228')].id)].user_id)].keyword_list:
+    if i:
+        for j in i:
+            for t in j['keyword'].split(' '):
+                user_normal_tag += user_tag_dict[t]
+
+# 181277946
+user_normal_tag/63218 #2867.505235850549
+                
+                
