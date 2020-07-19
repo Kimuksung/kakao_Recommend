@@ -133,14 +133,8 @@ def load_writer():
         sample = pickle.load(f)
     return sample
 
-def similar_writer( writer_id , cf_writer , model):
-    scores=[]
-    for tags, text in cf_writer:
-        trained_doc_vec = model.docvecs[tags[0]]
-        scores.append(cosine_similarity(writer['@yongarli'].reshape(-1, 128), trained_doc_vec.reshape(-1, 128)))
-    
-    tmp = pd.DataFrame(writer.items() , columns=['writer', 'embedding'])
-    tmp = tmp.set_index('writer')
+def similar_writer( writer_id , cf_writer , model , similar_writer_df):
+    tmp = similar_writer_df
     
     score = []
     for i in range(len(tmp)):
@@ -159,4 +153,18 @@ model = Doc2Vec.load('./kakao_writer_news_model.doc2vec')
 writer = make_writer_embedding(metadata_emb ,model) #embedding modeling
 save_writer(writer) # data가 큼으로 embedding한 값 저장
     
-similar_writer( '@chungsana' , cf_writer , model)
+similar_writer_df = pd.DataFrame(writer.items() , columns=['writer', 'embedding'])
+similar_writer_df = similar_writer_df.set_index('writer')
+similar_writer( '@chungsana' , cf_writer , model , similar_writer_df)
+#feedback하자면 함수에 모르고 2번 반복시켜 돌렸다가 매우 큰 시간 손해를 봄
+
+similar_writer_all={}
+cnt=0
+for i in set(metadata.user_id): # 19065
+    tmp = []
+    cnt +=1
+    print(cnt)
+    for j in similar_writer( i , cf_writer , model , similar_writer_df):
+        tmp.append(j[0])
+    similar_writer_all[i] = tmp
+

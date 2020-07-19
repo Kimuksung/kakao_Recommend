@@ -157,3 +157,20 @@ for i in range(0,len(tmp2)):
 recent_pop['writer'] = tmp3
 recent_pop.info()
 
+recent_pop_num = int(len(recent_pop) * 0.2)
+recent_pop.sort_values(by=['writer'] , axis=0 , ascending=False)[:recent_pop_num]
+
+len(set(metadata.user_id))
+
+
+
+
+
+
+
+
+
+
+
+
+
