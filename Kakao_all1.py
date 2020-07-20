@@ -62,7 +62,7 @@ def preprocessing_read(read):
                              'hr': np.repeat(read['hr'], read_cnt_by_user),
                              'user_id': np.repeat(read['user_id'], read_cnt_by_user),
                              'article_id': chainer(read['article_id'])})
-    return read_raw.reset_index(drop=False , inplace=False)
+    return read_raw.reset_index(drop=False , inplace=False).drop('index' ,axis=1)
 
 def preprocessing_unix(metadata):
     tmp = []
@@ -207,8 +207,43 @@ def recent_writer_recom(read , user_id ,recent1_metadata):
     
     return similar_writer_recom(t , writer , cf_writer , writer_df)
 
+#magazine based
+def magazine_based(read , recent1_metadata) :
+    a = read[read.dt.between('20190215','20190228')]
+    b = set(a[a.user_id==user_id].article_id)
+    t = list(recent1_metadata[recent1_metadata.id.isin(b)].magazine_id)
+    
+    tmp ={}
+    for i in t:
+        if i in tmp.keys():
+            tmp[i] +=1
+        else:
+            tmp[i] = 1
+    
+    sort_value = sorted( tmp.items() , key=(lambda x:x[1]) , reverse=True)[:5]
+    answer=[]
+    if len(recent1_metadata[recent1_metadata.magazine_id==sort_value[0][0]].id)> 10:
+        a = recent1_metadata[recent1_metadata.magazine_id==sort_value[0][0]].id
+        b = read[read.article_id.isin(a)]
+        t = list(b[b.dt.between('20190215' , '20190228')].article_id)
+        tmp ={}
+        for i in t:
+            if i in tmp.keys():
+                tmp[i] +=1
+            else:
+                tmp[i] = 1
+    
+        sort_value = sorted( tmp.items() , key=(lambda x:x[1]) , reverse=True)[:5]
+        answer = list(map(lambda x : x[0], sort_value))
+    
+    else:
+        answer = list(recent1_metadata[recent1_metadata.magazine_id==sort_value[0][0]].id)
+    return answer
+
 #---- Main --------
 #----popular + recentl based ---------
+# 2019.02.22~2019.02.28
+# popular = read num
 metadata = preprocessing_unix(metadata)
 read = preprocessing_read(read)
 
@@ -264,34 +299,65 @@ for i in magazine.magazine_tag_list:
             magazine_dict[j] = 1
 
 # 20190215 ~ 20190228 읽은 글 중에서 magazine의 비율을 보고 추천
-a = read[read.dt.between('20190215','20190228')]
-b = set(a[a.user_id==user_id].article_id)
-t = list(recent1_metadata[recent1_metadata.id.isin(b)].magazine_id)
+magazine_based(read , recent1_metadata)
 
-tmp ={}
-for i in t:
-    if i in tmp.keys():
-        tmp[i] +=1
-    else:
-        tmp[i] = 1
+#----popular + recent2 based ---------
+# 2019.03.01~2019.03.14
+# read에 관한 data가 없기 때문에 popular 재정의 필요
+# 앞의 다른 파이썬 파일을 보면
+# magazine_tag_list / 구독자 수로 대체 가능
+# user tag 대체 불가
 
-sort_value = sorted( tmp.items() , key=(lambda x:x[1]) , reverse=True)[1:5]
-
-if sort_value[0][1]> 10:
-    a = metadata[metadata.magazine_id==0].id
-    b = read[read.article_id.isin(a)]
-    t = list(b[b.dt.between('20190215' , '20190228')].article_id)
-    tmp ={}
-    for i in t:
-        if i in tmp.keys():
-            tmp[i] +=1
+# metadata를 통해 2019.03.01~03.14
+def make_recent2_metadata(metadata ):
+    recent2 = metadata[metadata.date.between('20190301' , '20190314')]
+    # 구독자 수 세기
+    follow_list ={}
+    for i in users.following_list:
+        for j in i:
+            if j in follow_list.keys():
+                follow_list[j] +=1
+            else:
+                follow_list[j] = 1
+    
+    tmp = []
+    tmp2 = []
+    tmp3 = []
+    for i in recent2.user_id:
+        if i in follow_list.keys():
+            tmp.append(follow_list[i])
         else:
-            tmp[i] = 1
+            tmp.append(0)
+   
+    magazine_dict ={}
+    for i in magazine.magazine_tag_list:
+        for j in i:
+            if j in magazine_dict.keys():
+                magazine_dict[j] +=1
+            else:
+                magazine_dict[j] = 1
+        
+    for i in recent2.magazine_id:
+        a=0
+        if i:
+            for j in magazine[magazine.id == i].magazine_tag_list:
+                for t in j:
+                    a+= magazine_dict[t]
+        tmp2.append(a)
+        
+    recent_pop = recent2.reset_index(drop=True)
+    for i in range(0,len(tmp2)):
+        tmp3.append(tmp2[i] + tmp[i])
+    recent_pop['writer'] = tmp3
 
-    sort_value = sorted( tmp.items() , key=(lambda x:x[1]) , reverse=True)[:5]
-    list(map(lambda x : x[0], sort_value))
+    recent_pop_num = int(len(recent_pop) * 0.2)
+    return_data = recent_pop.sort_values(by=['writer'] , axis=0 , ascending=False)[:recent_pop_num].reset_index(drop=True)
+    return return_data
 
-else:
-    recent1_metadata[recent1_metadata.magazine_id==sort_value[0][0]].id
-metadata[metadata.magazine_id==sort_value[0][0]].id
-recent1_metadata
+recent2 = make_recent2_metadata(metadata)
+
+
+
+
+
+

@@ -75,8 +75,8 @@ def trans_unix(metadata):
     metadata = metadata.drop('reg_ts' , axis=1)
     return metadata
 
-# recent1 대해 수행 중
-# metadata를 통해 2019.02.15~02.28
+# recent2 대해 수행 중
+# metadata를 통해 2019.03.01~03.14
 def make_recent2_metadata(metadata ):
     metadata = trans_unix(metadata)
     #metadata 원하는 기간 데이터만 추출
