@@ -326,7 +326,7 @@ writer = load_writer()
 writer_df = pd.DataFrame(writer.items() , columns=['writer', 'embedding'])
 writer_df = writer_df.set_index('writer')
 
-similar_writer_recom(user_following_list , writer , cf_writer , writer_df , recent1_meta)
+similar_writer_recom(user_following_list , writer , cf_writer , writer_df , recent1_metadata)
 
 # 4. 최근 본글 작가와의 유사도(2019.02.22~2019.02.28)
 recent_writer_recom(read , user_id ,recent1_metadata)
@@ -381,20 +381,81 @@ def all_read_similar(read , metadata , user_id):
     for i in range(len(metadata)):
         score.append( (i , cosine_similarity(read_mean.reshape(-1, 128) , model.docvecs[i].reshape(-1, 128))))
     
-    similar_read_data = sorted( score , key = (lambda x:x[1]) , reverse=True)[:30]
-    return similar_read_data
+    similar_read_data = sorted( score , key = (lambda x:x[1]) , reverse=True)
+    ttmp =[]
+    for i in similar_read_data:
+        ttmp.append(i[0])    
+    return metadata.iloc[ttmp,:]
+
+def read_counter(read):
+    tmp= {}
+    for i in read.article_id:
+        if i in tmp.keys():
+            tmp[i] +=1
+        else:
+            tmp[i] = 1
+    return tmp
 
 all_read_similar(read, metadata , user_id)
 
-# 2. 구독자와 일치하는 거 중 많이 본거 추천(2019.02.28)
-tmp = list(read[read.user_id==user_id].article_id)
-set(list(metadata[metadata.id.isin(tmp)].user_id)) & set(user_following_list)
+# 2. 구독자의 다른 인기글 추천(2019.02.28)
+# 앞에서 구독자외의 읽은 데이터를 이용하여 유사도를 비교해서 추천을 해주었기 때문에 구독자 하는게 맞다고 생각
+def find_follow_pop(read , user_id , metadata):
+    tmp = list(read[read.user_id==user_id].article_id)
+    tmp = set(list(metadata[metadata.id.isin(tmp)].user_id)) & set(user_following_list) #10
+    
+    read_dict = read_counter(read)
+    wanted_keys = metadata[metadata.user_id.isin(tmp)].id
+    wanted_dict = dict((k, read_dict[k]) for k in wanted_keys if k in read_dict)
+    return_data = sorted( wanted_dict , key = (lambda x:x[1]) , reverse=True)[:30]
+    return return_data
 
+find_follow_pop(read , user_id , metadata)
 
 # 3. 같은 magazine에서 많이 본 거 추천(2019.02.28)
-# 4. 검색어 tag를 이용하여 유사한 검색어 추천(2019.02.28)
+def magazine_based2(read , metadata ,user_id) :
+    a = read
+    b = set(a[a.user_id==user_id].article_id)
+    t = list(metadata[metadata.id.isin(b)].magazine_id)
+    
+    tmp ={}
+    for i in t:
+        if i in tmp.keys():
+            tmp[i] +=1
+        else:
+            tmp[i] = 1
+    
+    sort_value = sorted( tmp.items() , key=(lambda x:x[1]) , reverse=True)[:5]
+    answer=[]
+    if len(metadata[metadata.magazine_id==sort_value[0][0]].id)> 10:
+        a = metadata[metadata.magazine_id==sort_value[0][0]].id
+        b = read[read.article_id.isin(a)]
+        t = list(b.article_id)
+        tmp ={}
+        for i in t:
+            if i in tmp.keys():
+                tmp[i] +=1
+            else:
+                tmp[i] = 1
+    
+        sort_value = sorted( tmp.items() , key=(lambda x:x[1]) , reverse=True)[:10]
+        answer = list(map(lambda x : x[0], sort_value))
+    
+    else:
+        answer = list(metadata[metadata.magazine_id==sort_value[0][0]].id)
+    return answer
+
+magazine_based2(read , metadata , user_id)
 
 
-
-
-
+# user의 성향 파악
+user_dict ={}
+all_user = users.id
+for i in all_user:
+    a = read[read.user_id==i] # 815
+    user_dict[i] = len(a[a.dt.between('20190215', '20190228')])
+    
+    
+    
+    
+    
