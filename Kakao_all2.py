@@ -186,7 +186,7 @@ def similar_writer_recom(user_following_list , writer , cf_writer , writer_df , 
     
     return recent1_metadata[recent1_metadata.user_id.isin(similar_writer_recommend)].id
 
-def cf_writer(metadata):
+def cf_writer_double(metadata):
     metadata_emb = metadata[['user_id', 'title', 'keyword_list']]
     metadata_text2 = []
     
@@ -200,7 +200,7 @@ def cf_writer(metadata):
     cf_writer = make_doc2vec_data(metadata_emb , 'text' )
     return cf_writer_tag , cf_writer
 
-def recent_writer_recom(read , user_id ,recent1_metadata):
+def recent_writer_recom(read , user_id ,recent1_metadata , cf_writer , writer_df ,writer):
     a = read[read.dt.between('20190222', '20190228')]
     b = a[a.user_id==user_id]
     t = list(recent1_metadata[recent1_metadata.id.isin(set(b.article_id))].user_id)
@@ -285,80 +285,7 @@ def make_recent2_metadata(metadata ):
     recent_pop_num = int(len(recent_pop) * 0.2)
     return_data = recent_pop.sort_values(by=['writer'] , axis=0 , ascending=False)[:recent_pop_num].reset_index(drop=True)
     return return_data
-#---- Main --------
-#----popular + recentl based ---------
-# 2019.02.22~2019.02.28
-# popular = read num
-metadata = preprocessing_unix(metadata)
-read = preprocessing_read(read)
-
-# 2019.02.15~2019.02.28 상위 20% view data에 대해서
-recent1_metadata = make_recent1_metadata(metadata , read)
-
-# 추천할 user_id
-user_id = "#ae0aa864580107263a99c5087eb27a9d"
-finall_answer = []
-# ---- following based ------
-# user의 구독 리스트
-user_following_list = user_following_list_func(user_id)
-
-# 1. 최근 2019.02.22~ 2019.02.28 user가 읽은 글 중에서 구독자와 일치하는 애들 우선 추천
-final_recommend1 = recent_same_readfollow(recent1_metadata , read , user_following_list)
-
-# 2. 인기있는 최근 글 중에서 구독자와 관련된 글 추천
-final_recommend2 = recent1_metadata[recent1_metadata.user_id.isin(user_following_list)].id # 16개
-
-# 3. 구독자와 유사한 애들 추천
-
-# 구독자끼리 상관관계가 높은 애들을 찾는다.
-# 제목과 keyword를 이용하여 한글 data만 뽑아내어 작가 별로 128차원으로 임베딩 시켰다.
-# 이를 이용하여 하나의 작가 당 모든 작가의 cos 유사도를 비교해서 상위 10만 뽑아내어 data로 저장
-# -> 수정 why? 모든 작가와의 유사도를 구하려다 보니 하나당 1분 정도 소요되는데 19000개임으로 돌리기 무리라 판단
-# -> 대안? 구독한 작가의 vector의 평균을 구하여 위와 비슷한 작가의 글을 추천
-
-cf_writer_tag , cf_writer = cf_writer(metadata)
-#make_doc2vec_models(cf_writer_tag , 'kakao_writer')
-model = Doc2Vec.load('./kakao_writer_news_model.doc2vec')
-
-#writer = make_writer_embedding(metadata_emb ,model) #embedding modeling
-#save_writer(writer) # data가 큼으로 embedding한 값 저장
-writer = load_writer()
-writer_df = pd.DataFrame(writer.items() , columns=['writer', 'embedding'])
-writer_df = writer_df.set_index('writer')
-
-final_recommend3 = list(similar_writer_recom(user_following_list , writer , cf_writer , writer_df , recent1_metadata))
-
-# 4. 최근 본글 작가와의 유사도(2019.02.22~2019.02.28)
-final_recommend4 = list(recent_writer_recom(read , user_id ,recent1_metadata))
-
-# ---magazine based ---
-# 20190215 ~ 20190228 읽은 글 중에서 magazine의 비율을 보고 추천
-final_recommend5 = magazine_based(read , recent1_metadata)
-
-#----popular + recent2 based ---------
-# 2019.03.01~2019.03.14
-# read에 관한 data가 없기 때문에 popular 재정의 필요
-# 앞의 다른 파이썬 파일을 보면
-# magazine_tag_list / 구독자 수로 대체 가능
-# user tag 대체 불가
-
-# metadata를 통해 2019.03.01~03.14
-recent2_metadata = make_recent2_metadata(metadata) #인기도 순으로 나열
-# 1. 인기있는 최근 글 중에서 구독자와 관련된 글 추천
-final_recommend6 = recent2_metadata[recent2_metadata.user_id.isin(user_following_list)].id
-
-# 2. 구독자와 유사한 애들 추천
-final_recommend7 = list(similar_writer_recom(user_following_list , writer , cf_writer , writer_df , recent2_metadata))
-
-# magazine based
-# 3.1~3.14은 read data정보가 없기 때문에 어떤 magazine을 많이 읽었는지 알 수 가 없다.
-# 따라서 이부분에 대해서는 모든 metadata를 이용하여 user가 어떤 magazine을 선호하는지 보고 이에 따라 추천해주는게 맞는거같다.
-
-# All data
-# 1. 자신이 읽은 글과 유사(~2019.03.14)
-# read에 있지만 metadata에 없는 글도 있을 수 있다.
-# 따라서 metadata에 없는 글은 생략하고 해야 할듯
-def all_read_similar(read , metadata , user_id):
+def all_read_similar(read , metadata , user_id , model):
     tmp = list(read[read.user_id==user_id].article_id)
     list(metadata[metadata.id.isin(tmp)].index)
     temp=[]
@@ -386,11 +313,7 @@ def read_counter(read):
             tmp[i] = 1
     return tmp
 
-final_recommend8 = list(all_read_similar(read, metadata , user_id))
-
-# 2. 구독자의 다른 인기글 추천(2019.02.28)
-# 앞에서 구독자외의 읽은 데이터를 이용하여 유사도를 비교해서 추천을 해주었기 때문에 구독자 하는게 맞다고 생각
-def find_follow_pop(read , user_id , metadata):
+def find_follow_pop(read , user_id , metadata , user_following_list):
     tmp = list(read[read.user_id==user_id].article_id)
     tmp = set(list(metadata[metadata.id.isin(tmp)].user_id)) & set(user_following_list) #10
     
@@ -399,10 +322,6 @@ def find_follow_pop(read , user_id , metadata):
     wanted_dict = dict((k, read_dict[k]) for k in wanted_keys if k in read_dict)
     return_data = sorted( wanted_dict , key = (lambda x:x[1]) , reverse=True)[:10]
     return return_data
-
-final_recommend9 = find_follow_pop(read , user_id , metadata)
-
-# 3. 같은 magazine에서 많이 본 거 추천(2019.02.28)
 def magazine_based2(read , metadata ,user_id) :
     a = read
     b = set(a[a.user_id==user_id].article_id)
@@ -435,55 +354,124 @@ def magazine_based2(read , metadata ,user_id) :
         answer = list(metadata[metadata.magazine_id==sort_value[0][0]].id)
     return answer
 
-final_recommend10 = magazine_based2(read , metadata , user_id)
+#---- Main --------
+#----popular + recentl based ---------
+# 2019.02.22~2019.02.28
+# popular = read num
+metadata = preprocessing_unix(metadata)
+read = preprocessing_read(read)
 
-final_sum = len(final_recommend1) + len(final_recommend2) + len(final_recommend3) + len(final_recommend4) + len(final_recommend5) + len(final_recommend6) + len(final_recommend7) + len(final_recommend8) + len(final_recommend9) + len(final_recommend10) 
-print(f" f1 : {len(final_recommend1)} , f2 : {len(final_recommend2)} , f3 : {len(final_recommend3)}, f4 : {len(final_recommend4)} , f5 : {len(final_recommend5)} , f6 : {len(final_recommend6)} , f7 : {len(final_recommend7)} , f8 : {len(final_recommend8)} , f9 : {len(final_recommend9)} , f10 : {len(final_recommend10)} , sum = {final_sum}")
+# 2019.02.15~2019.02.28 상위 20% view data에 대해서
+recent1_metadata = make_recent1_metadata(metadata , read)
 
-'''
-# user의 성향 파악
-# 2018.10.01 ~ 2019.02.14 137일
-# 2019.02.15 ~ 2019.02.28 14일
-# 보류 하자 너무 애매하다. 객관적으로 판단해야할 data가 없는 거 같음
-users # 31만개 data에 대해서
-user_dict ={}
-tmp = read[read.user_id==user_id].article_id
-tmp2 = metadata[metadata.id.isin(tmp)].date
-recent_read_len = len(tmp2[tmp2.between('20190215','20190228')])
-all_read_len = len(tmp2) - recent_read_len 
+# 추천할 user_id
+user_id = "#ae0aa864580107263a99c5087eb27a9d"
 
-metadata.info()
 
-read.info()
-read_tmp = read[read.dt.between('20190215','20190228')]
-read_tmp = read_tmp.drop(['dt','hr'] , axis=1)
-read_tmp.info()
+def model(user_id):
+    user_id = user_id
+    finall_answer = []
+    # ---- following based ------
+    # user의 구독 리스트
+    user_following_list = user_following_list_func(user_id)
+    
+    # 1. 최근 2019.02.22~ 2019.02.28 user가 읽은 글 중에서 구독자와 일치하는 애들 우선 추천
+    final_recommend1 = recent_same_readfollow(recent1_metadata , read , user_following_list)
+    
+    # 2. 인기있는 최근 글 중에서 구독자와 관련된 글 추천
+    final_recommend2 = recent1_metadata[recent1_metadata.user_id.isin(user_following_list)].id # 16개
+    
+    # 3. 구독자와 유사한 애들 추천
+    # 구독자끼리 상관관계가 높은 애들을 찾는다.
+    # 제목과 keyword를 이용하여 한글 data만 뽑아내어 작가 별로 128차원으로 임베딩 시켰다.
+    # 이를 이용하여 하나의 작가 당 모든 작가의 cos 유사도를 비교해서 상위 10만 뽑아내어 data로 저장
+    # -> 수정 why? 모든 작가와의 유사도를 구하려다 보니 하나당 1분 정도 소요되는데 19000개임으로 돌리기 무리라 판단
+    # -> 대안? 구독한 작가의 vector의 평균을 구하여 위와 비슷한 작가의 글을 추천
+    
+    cf_writer_tag , cf_writer = cf_writer_double(metadata)
+    #make_doc2vec_models(cf_writer_tag , 'kakao_writer')
+    model = Doc2Vec.load('./kakao_writer_news_model.doc2vec')
+    
+    #writer = make_writer_embedding(metadata_emb ,model) #embedding modeling
+    #save_writer(writer) # data가 큼으로 embedding한 값 저장
+    writer = load_writer()
+    writer_df = pd.DataFrame(writer.items() , columns=['writer', 'embedding'])
+    writer_df = writer_df.set_index('writer')
+    
+    final_recommend3 = list(similar_writer_recom(user_following_list , writer , cf_writer , writer_df , recent1_metadata))
+    
+    # 4. 최근 본글 작가와의 유사도(2019.02.22~2019.02.28)
+    final_recommend4 = list(recent_writer_recom(read , user_id ,recent1_metadata , cf_writer , writer_df ,writer))
+    
+    # ---magazine based ---
+    # 20190215 ~ 20190228 읽은 글 중에서 magazine의 비율을 보고 추천
+    final_recommend5 = magazine_based(read , recent1_metadata)
+    
+    #----popular + recent2 based ---------
+    # 2019.03.01~2019.03.14
+    # read에 관한 data가 없기 때문에 popular 재정의 필요
+    # 앞의 다른 파이썬 파일을 보면
+    # magazine_tag_list / 구독자 수로 대체 가능
+    # user tag 대체 불가
+    
+    # metadata를 통해 2019.03.01~03.14
+    recent2_metadata = make_recent2_metadata(metadata) #인기도 순으로 나열
+    # 1. 인기있는 최근 글 중에서 구독자와 관련된 글 추천
+    final_recommend6 = recent2_metadata[recent2_metadata.user_id.isin(user_following_list)].id
+    
+    # 2. 구독자와 유사한 애들 추천
+    final_recommend7 = list(similar_writer_recom(user_following_list , writer , cf_writer , writer_df , recent2_metadata))
+    
+    # magazine based
+    # 3.1~3.14은 read data정보가 없기 때문에 어떤 magazine을 많이 읽었는지 알 수 가 없다.
+    # 따라서 이부분에 대해서는 모든 metadata를 이용하여 user가 어떤 magazine을 선호하는지 보고 이에 따라 추천해주는게 맞는거같다.
+    
+    # All data
+    # 1. 자신이 읽은 글과 유사(~2019.03.14)
+    # read에 있지만 metadata에 없는 글도 있을 수 있다.
+    # 따라서 metadata에 없는 글은 생략하고 해야 할듯
+    
+    
+    final_recommend8 = list(all_read_similar(read , metadata , user_id , model))
+    
+    # 2. 구독자의 다른 인기글 추천(2019.02.28)
+    # 앞에서 구독자외의 읽은 데이터를 이용하여 유사도를 비교해서 추천을 해주었기 때문에 구독자 하는게 맞다고 생각
+    
+    
+    final_recommend9 = find_follow_pop(read , user_id , metadata , user_following_list)
+    
+    # 3. 같은 magazine에서 많이 본 거 추천(2019.02.28)
+    
+    
+    final_recommend10 = magazine_based2(read , metadata , user_id)
+    
+    final_sum = len(final_recommend1) + len(final_recommend2) + len(final_recommend3) + len(final_recommend4) + len(final_recommend5) + len(final_recommend6) + len(final_recommend7) + len(final_recommend8) + len(final_recommend9) + len(final_recommend10) 
+    print(f" f1 : {len(final_recommend1)} , f2 : {len(final_recommend2)} , f3 : {len(final_recommend3)}, f4 : {len(final_recommend4)} , f5 : {len(final_recommend5)} , f6 : {len(final_recommend6)} , f7 : {len(final_recommend7)} , f8 : {len(final_recommend8)} , f9 : {len(final_recommend9)} , f10 : {len(final_recommend10)} , sum = {final_sum}")
 
-len(read_tmp[read_tmp.user_id==user_id])
+model("#ae0aa864580107263a99c5087eb27a9d")
 
-for i in read_tmp.user_id:
-    if i in user_dict.keys():
-        user_dict[i] += 1
-    else:
-        user_dict[i] = 1
+# 시연 예시
+# 실제 user가 읽은 data
+tttt = read[read.user_id=="#ae0aa864580107263a99c5087eb27a9d"][-10:].article_id
+metadata[metadata.id.isin(tttt)][['keyword_list','title']]
 
-sort_value = sorted(user_dict.items() , key = (lambda x : x[1]) , reverse=True)        
-recent_user = sort_value[:int(len(sort_value)*0.8)]
-sort_value[10000]
-len(sort_value) # 84373 vs user 전체 수는 31만
-# 이 유저들은 2번 눌렀다는 이유로 최신의 경향을 받는 것이 맞는가?
-# 그렇다고 최신글과 과거글을 몇 번누른걸로 최신 경향을 추천하는것이 맞는가? 
-len(users) * 0.8
+# 추천 system의 data
+model_data = Doc2Vec.load('./kakao_writer_news_model.doc2vec')
+final_recommend8 = all_read_similar(read , metadata , user_id , model_data)
+metadata[metadata.id.isin(final_recommend8)][['keyword_list','title']]
 
-#속도 문제로 인하여 취소    
-cnt = 0
-for i in users.id:    
-    tmp = read_tmp[read_tmp.user_id==i].article_id
-    recent_read_len = len(read_tmp[read_tmp.user_id== i])
-    user_dict[i] = recent_read_len
-    cnt += 1
-    print(cnt)
+# 구독 작가로 추천
+writer = load_writer()
+writer_df = pd.DataFrame(writer.items() , columns=['writer', 'embedding'])
+writer_df = writer_df.set_index('writer')
 
-'''
+cf_writer_tag , cf_writer = cf_writer_double(metadata)
+user_following_list= user_following_list_func("#ae0aa864580107263a99c5087eb27a9d")
+final_recommend3 = list(similar_writer_recom(user_following_list , writer , cf_writer , writer_df , recent1_metadata))
+metadata[metadata.id.isin(final_recommend3)]
+metadata[metadata.id.isin(tttt)]
 
-magazine
+# 최근 본글 작가와의 유사도
+final_recommend4 = list(recent_writer_recom(read , user_id ,recent1_metadata , cf_writer , writer_df ,writer))
+metadata[metadata.id.isin(final_recommend4)]
+metadata[metadata.id.isin(tttt)]
