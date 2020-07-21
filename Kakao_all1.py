@@ -449,13 +449,45 @@ magazine_based2(read , metadata , user_id)
 
 
 # user의 성향 파악
+# 2018.10.01 ~ 2019.02.14 137일
+# 2019.02.15 ~ 2019.02.28 14일
+# 보류 하자 너무 애매하다. 객관적으로 판단해야할 data가 없는 거 같음
+users # 31만개 data에 대해서
 user_dict ={}
-all_user = users.id
-for i in all_user:
-    a = read[read.user_id==i] # 815
-    user_dict[i] = len(a[a.dt.between('20190215', '20190228')])
-    
-    
-    
-    
-    
+tmp = read[read.user_id==user_id].article_id
+tmp2 = metadata[metadata.id.isin(tmp)].date
+recent_read_len = len(tmp2[tmp2.between('20190215','20190228')])
+all_read_len = len(tmp2) - recent_read_len 
+
+metadata.info()
+
+read.info()
+read_tmp = read[read.dt.between('20190215','20190228')]
+read_tmp = read_tmp.drop(['dt','hr'] , axis=1)
+read_tmp.info()
+
+len(read_tmp[read_tmp.user_id==user_id])
+
+for i in read_tmp.user_id:
+    if i in user_dict.keys():
+        user_dict[i] += 1
+    else:
+        user_dict[i] = 1
+
+sort_value = sorted(user_dict.items() , key = (lambda x : x[1]) , reverse=True)        
+recent_user = sort_value[:int(len(sort_value)*0.8)]
+sort_value[10000]
+len(sort_value) # 84373 vs user 전체 수는 31만
+# 이 유저들은 2번 눌렀다는 이유로 최신의 경향을 받는 것이 맞는가?
+# 그렇다고 최신글과 과거글을 몇 번누른걸로 최신 경향을 추천하는것이 맞는가? 
+len(users) * 0.8
+'''
+#속도 문제로 인하여 취소    
+cnt = 0
+for i in users.id:    
+    tmp = read_tmp[read_tmp.user_id==i].article_id
+    recent_read_len = len(read_tmp[read_tmp.user_id== i])
+    user_dict[i] = recent_read_len
+    cnt += 1
+    print(cnt)
+'''
