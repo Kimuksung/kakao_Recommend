@@ -452,7 +452,8 @@ model("#ae0aa864580107263a99c5087eb27a9d")
 
 # 시연 예시
 # 실제 user가 읽은 data
-tttt = read[read.user_id=="#ae0aa864580107263a99c5087eb27a9d"][-10:].article_id
+user_id = "#ae0aa864580107263a99c5087eb27a9d"
+tttt = read[read.user_id==user_id][-10:].article_id
 metadata[metadata.id.isin(tttt)][['keyword_list','title']]
 
 # 추천 system의 data
