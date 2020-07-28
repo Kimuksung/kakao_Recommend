@@ -32,11 +32,19 @@ ppt = https://docs.google.com/presentation/d/1N0uJ-fcEhHJ99gTouH3ZZxCScl59hcnYmC
 참조
 
 https://arena.kakao.com/c/6/data
+
 https://arena.kakao.com/forum/topics/170
+
 https://github.com/jihoo-kim/BrunchRec
+
 https://github.com/kakao-arena/brunch-article-recommendation
+
 https://lovit.github.io/nlp/representation/2018/03/26/word_doc_embedding/
+
 https://jisoo-coding.tistory.com/27
+
 https://storage.googleapis.com/pub-tools-public-publication-data/pdf/45530.pdf
+
 https://github.com/lsjsj92/recommender_system_with_Python
+
 http://hoondongkim.blogspot.com/2019/03/recommendation-trend.html
