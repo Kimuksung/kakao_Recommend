@@ -14,7 +14,7 @@ import pandas as pd
 from pandas.plotting import register_matplotlib_converters
 import seaborn as sns
 pd.set_option('display.max_columns', 500)
-pd.set_option('display.max_rows', 50)
+pd.set_option('display.max_rows', 500)
 
 # 1.Data Load
 magazine = pd.read_json('magazine.json', lines=True)
@@ -173,7 +173,7 @@ def similar_writer( writer_id , cf_writer , model , tmp):
     similar_writer_data = sorted( score , key = (lambda x:x[1]) , reverse=True)[:30]
     return similar_writer_data
 
-def similar_writer_recom(user_following_list , writer , cf_writer , writer_df , recent1_metadata):
+def similar_writer_recom(user_following_list , writer , cf_writer , writer_df , recent1_metadata , model):
 # 구독자들의 평균 vector값 구한다.
     tmp=[]
     for i in user_following_list:
@@ -200,12 +200,12 @@ def cf_writer_double(metadata):
     cf_writer = make_doc2vec_data(metadata_emb , 'text' )
     return cf_writer_tag , cf_writer
 
-def recent_writer_recom(read , user_id ,recent1_metadata , cf_writer , writer_df ,writer):
+def recent_writer_recom(read , user_id ,recent1_metadata , cf_writer , writer_df ,writer , model):
     a = read[read.dt.between('20190222', '20190228')]
     b = a[a.user_id==user_id]
     t = list(recent1_metadata[recent1_metadata.id.isin(set(b.article_id))].user_id)
     
-    return similar_writer_recom(t , writer , cf_writer , writer_df , recent1_metadata)
+    return similar_writer_recom(t , writer , cf_writer , writer_df , recent1_metadata , model)
 
 #magazine based
 def magazine_based(read , recent1_metadata) :
@@ -463,16 +463,24 @@ metadata[metadata.id.isin(final_recommend8)][['keyword_list','title']]
 
 # 구독 작가로 추천
 writer = load_writer()
-writer_df = pd.DataFrame(writer.items() , columns=['writer', 'embedding'])
+writer_df = pd.DataFrame(list(writer.items()) , columns=['writer', 'embedding'])
 writer_df = writer_df.set_index('writer')
 
 cf_writer_tag , cf_writer = cf_writer_double(metadata)
 user_following_list= user_following_list_func("#ae0aa864580107263a99c5087eb27a9d")
-final_recommend3 = list(similar_writer_recom(user_following_list , writer , cf_writer , writer_df , recent1_metadata))
-metadata[metadata.id.isin(final_recommend3)]
-metadata[metadata.id.isin(tttt)]
+final_recommend3 = list(similar_writer_recom(user_following_list , writer , cf_writer , writer_df , recent1_metadata , model_data))
+metadata[metadata.id.isin(final_recommend3)][['id','keyword_list','title','sub_title']]
+metadata[metadata.id.isin(tttt)][['id','keyword_list','title','sub_title']]
 
 # 최근 본글 작가와의 유사도
-final_recommend4 = list(recent_writer_recom(read , user_id ,recent1_metadata , cf_writer , writer_df ,writer))
-metadata[metadata.id.isin(final_recommend4)]
-metadata[metadata.id.isin(tttt)]
+final_recommend4 = list(recent_writer_recom(read , user_id ,recent1_metadata , cf_writer , writer_df ,writer ,model_data))
+metadata[metadata.id.isin(final_recommend4)][['id','keyword_list','title','sub_title']]
+metadata[metadata.id.isin(tttt)][['id','keyword_list','title','sub_title']]
+
+final_recommend9 = find_follow_pop(read , user_id , metadata , user_following_list)
+metadata[metadata.id.isin(final_recommend9)][['id','keyword_list','title','sub_title']]
+metadata[metadata.id.isin(tttt)][['id','keyword_list','title','sub_title']]
+
+final_recommend10 = magazine_based2(read , metadata , user_id)
+metadata[metadata.id.isin(final_recommend10)][['keyword_list','title','sub_title']]
+metadata[metadata.id.isin(tttt)][['keyword_list','title','sub_title']]
