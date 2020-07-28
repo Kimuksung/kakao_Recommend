@@ -25,6 +25,8 @@ EDA = https://colab.research.google.com/drive/1wVPIKrDRd2BqPC6h4jBonKMtkMTNoene?
 
 자세한 내용은 PPT 및 Code 참조
 
+ppt = https://docs.google.com/presentation/d/1N0uJ-fcEhHJ99gTouH3ZZxCScl59hcnYmCjIKfBX1jA/edit?usp=sharing
+
 출처 - https://arena.kakao.com/c/6
 
 참조
